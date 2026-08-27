@@ -357,7 +357,9 @@ def probe_dimensions(path: Path):
         "-show_entries", "stream=width,height",
         "-of", "csv=s=x:p=0", str(path),
     ])
-    w, h = result.stdout.strip().split("x")
+    # Some ffprobe builds emit a trailing separator with no value after it
+    # (e.g. "1920x1080x") — only the first two fields are ever meaningful.
+    w, h = result.stdout.strip().split("x")[:2]
     return int(w), int(h)
 
 
