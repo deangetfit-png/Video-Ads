@@ -534,7 +534,15 @@ def process_batch(raw_files, settings):
 
     workdir = Path(tempfile.mkdtemp(prefix="video_ads_"))
     try:
-        processed = [process_single_clip(f, settings, workdir) for f in raw_files]
+        processed = []
+        for f in raw_files:
+            clip = process_single_clip(f, settings, workdir)
+            clip_duration = probe_duration(clip.cleaned_path)
+            print(
+                f"[diagnostic] {f.name}: raw={probe_duration(f):.3f}s, "
+                f"{len(clip.keep_segments)} keep segment(s), cleaned output={clip_duration:.3f}s"
+            )
+            processed.append(clip)
 
         # Join cleaned clips in order, offsetting word timestamps to match.
         all_words = []
@@ -543,9 +551,11 @@ def process_batch(raw_files, settings):
             for w in clip.words:
                 all_words.append(Word(w.start + offset, w.end + offset, w.text))
             offset += probe_duration(clip.cleaned_path)
+        print(f"[diagnostic] sum of cleaned clip durations (expected): {offset:.3f}s")
 
         final_pre_captions = workdir / "final_no_captions.mp4"
         concat_final_clips([c.cleaned_path for c in processed], final_pre_captions, workdir)
+        print(f"[diagnostic] duration right after joining, before captions: {probe_duration(final_pre_captions):.3f}s")
 
         must_spell = settings["spelling"]["must_spell_correctly"]
         cues = build_cues(all_words, settings["captions"]["max_words_per_screen"], must_spell)
