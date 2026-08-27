@@ -117,7 +117,14 @@ _MODEL_CACHE = {}
 def get_model(model_name: str):
     if model_name not in _MODEL_CACHE:
         from faster_whisper import WhisperModel
-        _MODEL_CACHE[model_name] = WhisperModel(model_name, device="cpu", compute_type="int8")
+        # cpu_threads=1: multi-threaded CPU inference can sum floating-point
+        # results in a different order between runs, which is usually
+        # invisible but can flip the model's word-by-word argmax choice on
+        # a genuinely ambiguous (quiet/unclear) clip — cascading into a
+        # completely different sentence each run even with temperature=0.
+        _MODEL_CACHE[model_name] = WhisperModel(
+            model_name, device="cpu", compute_type="int8", cpu_threads=1
+        )
     return _MODEL_CACHE[model_name]
 
 
