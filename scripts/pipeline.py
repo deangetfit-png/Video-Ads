@@ -67,20 +67,13 @@ def run(cmd, **kwargs):
     return subprocess.run(cmd, capture_output=True, text=True, **kwargs)
 
 
-def run_ffmpeg(cmd):
+def run_ffmpeg(cmd, **kwargs):
     """Like run(), but raises with the real ffmpeg error instead of letting
     a silently-failed (missing/empty) output file confuse a later step."""
-    result = run(cmd)
+    result = run(cmd, **kwargs)
     if result.returncode != 0:
         raise RuntimeError(f"Command failed: {' '.join(cmd)}\n{result.stderr}")
     return result
-
-
-def ffmpeg_filter_path(path: Path) -> str:
-    """Escape a path for use as a value inside an ffmpeg -vf filter string
-    (e.g. ass=<path>). On Windows, a drive-letter colon like 'C:' would
-    otherwise be parsed as a filter option separator and break the command."""
-    return path.as_posix().replace(":", "\\:")
 
 
 def probe_duration(path: Path) -> float:
@@ -380,11 +373,15 @@ def probe_dimensions(path: Path):
 
 
 def burn_captions(src: Path, ass_path: Path, out_path: Path):
+    # A drive-letter colon (e.g. "C:") in the path breaks the ass filter's
+    # own colon-separated option parsing no matter how it's escaped, so we
+    # sidestep it entirely: run with cwd set to the file's own folder and
+    # reference it by bare filename, which never contains a colon.
     run_ffmpeg([
-        "ffmpeg", "-y", "-i", str(src), "-vf", f"ass={ffmpeg_filter_path(ass_path)}",
+        "ffmpeg", "-y", "-i", str(src), "-vf", f"ass={ass_path.name}",
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
         "-c:a", "copy", str(out_path),
-    ])
+    ], cwd=str(ass_path.parent))
 
 
 # ---------------------------------------------------------------------------
