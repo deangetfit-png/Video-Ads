@@ -128,6 +128,9 @@ def get_model(model_name: str):
     return _MODEL_CACHE[model_name]
 
 
+MAX_WORD_DURATION = 3.0  # seconds; a real single word is never longer than this
+
+
 def transcribe_words(path: Path, model_name: str):
     model = get_model(model_name)
     # temperature=0 disables Whisper's fallback ladder, which otherwise
@@ -138,13 +141,23 @@ def transcribe_words(path: Path, model_name: str):
     # losing more real words than it saved from hallucination — the
     # amplitude-based silencedetect + subtract_word_coverage combination
     # already protects real speech from being cut without this.
+    # no_repeat_ngram_size + condition_on_previous_text=False stop the
+    # repetition-loop hallucination (the same phrase regenerated dozens of
+    # times) that temperature=0 otherwise has no way to escape from.
     segments, _info = model.transcribe(
-        str(path), word_timestamps=True, vad_filter=False, temperature=0.0
+        str(path), word_timestamps=True, vad_filter=False, temperature=0.0,
+        no_repeat_ngram_size=3, condition_on_previous_text=False,
     )
     words = []
     for seg in segments:
         for w in (seg.words or []):
-            words.append(Word(start=w.start, end=w.end, text=w.word.strip()))
+            start, end = w.start, w.end
+            if end - start > MAX_WORD_DURATION:
+                # A hallucinated/garbage timestamp — never trust a single
+                # word to justify protecting minutes of "silence" from
+                # being cut.
+                end = start + MAX_WORD_DURATION
+            words.append(Word(start=start, end=end, text=w.word.strip()))
     return words
 
 
