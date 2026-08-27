@@ -67,6 +67,22 @@ def run(cmd, **kwargs):
     return subprocess.run(cmd, capture_output=True, text=True, **kwargs)
 
 
+def run_ffmpeg(cmd):
+    """Like run(), but raises with the real ffmpeg error instead of letting
+    a silently-failed (missing/empty) output file confuse a later step."""
+    result = run(cmd)
+    if result.returncode != 0:
+        raise RuntimeError(f"Command failed: {' '.join(cmd)}\n{result.stderr}")
+    return result
+
+
+def ffmpeg_filter_path(path: Path) -> str:
+    """Escape a path for use as a value inside an ffmpeg -vf filter string
+    (e.g. ass=<path>). On Windows, a drive-letter colon like 'C:' would
+    otherwise be parsed as a filter option separator and break the command."""
+    return path.as_posix().replace(":", "\\:")
+
+
 def probe_duration(path: Path) -> float:
     result = run([
         "ffprobe", "-v", "error", "-show_entries", "format=duration",
@@ -226,7 +242,7 @@ def cut_segments_and_concat(src: Path, keep_segments, out_path: Path, workdir: P
     part_files = []
     for idx, (s, e) in enumerate(keep_segments):
         part = workdir / f"part_{idx:04d}.mp4"
-        run([
+        run_ffmpeg([
             "ffmpeg", "-y", "-i", str(src), "-ss", f"{s:.3f}", "-to", f"{e:.3f}",
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
             "-c:a", "aac", "-b:a", "192k", str(part),
@@ -238,7 +254,7 @@ def cut_segments_and_concat(src: Path, keep_segments, out_path: Path, workdir: P
         for p in part_files:
             f.write(f"file '{p.as_posix()}'\n")
 
-    run([
+    run_ffmpeg([
         "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(list_file),
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
         "-c:a", "aac", "-b:a", "192k", str(out_path),
@@ -254,7 +270,7 @@ def concat_final_clips(clip_paths, out_path: Path, workdir: Path):
     with open(list_file, "w") as f:
         for p in clip_paths:
             f.write(f"file '{Path(p).resolve().as_posix()}'\n")
-    run([
+    run_ffmpeg([
         "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(list_file),
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
         "-c:a", "aac", "-b:a", "192k", str(out_path),
@@ -364,8 +380,8 @@ def probe_dimensions(path: Path):
 
 
 def burn_captions(src: Path, ass_path: Path, out_path: Path):
-    run([
-        "ffmpeg", "-y", "-i", str(src), "-vf", f"ass={ass_path.as_posix()}",
+    run_ffmpeg([
+        "ffmpeg", "-y", "-i", str(src), "-vf", f"ass={ffmpeg_filter_path(ass_path)}",
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
         "-c:a", "copy", str(out_path),
     ])
@@ -403,7 +419,7 @@ def quality_check(final_path: Path, expected_duration: float, caption_text: str,
 
     if settings["quality_check"]["verify_captions_against_audio"]:
         audio_path = workdir / "final_audio_check.wav"
-        run(["ffmpeg", "-y", "-i", str(final_path), "-ac", "1", "-ar", "16000", str(audio_path)])
+        run_ffmpeg(["ffmpeg", "-y", "-i", str(final_path), "-ac", "1", "-ar", "16000", str(audio_path)])
         recheck_words = transcribe_words(audio_path, settings["whisper_model"])
         recheck_text = " ".join(w.text for w in recheck_words)
         ratio = diff_ratio(caption_text, recheck_text)
