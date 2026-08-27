@@ -133,10 +133,13 @@ def transcribe_words(path: Path, model_name: str):
     # temperature=0 disables Whisper's fallback ladder, which otherwise
     # retries low-confidence audio with randomized sampling — the cause of
     # getting a different (sometimes hallucinated) transcript on every run
-    # of the same quiet/ambiguous clip. vad_filter skips near-silent/noisy
-    # stretches instead of asking the model to guess at them.
+    # of the same quiet/ambiguous clip. vad_filter stays off: it turned out
+    # to filter out genuinely quiet speech before the model ever heard it,
+    # losing more real words than it saved from hallucination — the
+    # amplitude-based silencedetect + subtract_word_coverage combination
+    # already protects real speech from being cut without this.
     segments, _info = model.transcribe(
-        str(path), word_timestamps=True, vad_filter=True, temperature=0.0
+        str(path), word_timestamps=True, vad_filter=False, temperature=0.0
     )
     words = []
     for seg in segments:
