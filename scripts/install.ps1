@@ -17,6 +17,19 @@ function Confirm-Step {
     return ($reply -match '^(y|yes)$')
 }
 
+function Test-PythonWorks {
+    # Windows ships a fake 'python' command that just opens the Microsoft
+    # Store when real Python isn't installed. Get-Command alone can't tell
+    # the difference, so actually run it and check the result.
+    if (-not (Get-Command python -ErrorAction SilentlyContinue)) { return $false }
+    try {
+        $out = & python --version 2>&1
+        return ($LASTEXITCODE -eq 0 -and $out -notmatch "Python was not found")
+    } catch {
+        return $false
+    }
+}
+
 Write-Host "Setting up your local video editor on Windows."
 Write-Host "This script only touches this computer. It will:"
 Write-Host "  1. Install ffmpeg (cuts, joins, and captions video) via winget"
@@ -46,13 +59,26 @@ if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
 }
 
 # 2: Python 3
-if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
+$pythonJustInstalled = $false
+if (-not (Test-PythonWorks)) {
     if (Confirm-Step "Install Python 3 via winget? (Runs the editing scripts.)") {
         winget install --id Python.Python.3.12 -e --accept-source-agreements --accept-package-agreements
-        Write-Host "Python installed. You may need to close and reopen this PowerShell window for it to be found on PATH."
+        $pythonJustInstalled = $true
+    } else {
+        Write-Host "Cannot continue without Python. Exiting."
+        exit 1
     }
 } else {
     Write-Host "Python 3 already installed, skipping."
+}
+
+if ($pythonJustInstalled) {
+    Write-Host ""
+    Write-Host "-------------------------------------------------------------"
+    Write-Host "Python was just installed. Windows needs a fresh PowerShell window to see it on PATH."
+    Write-Host "Please close this window, reopen PowerShell in this same folder, and run '.\scripts\install.ps1' again."
+    Write-Host "It will skip ffmpeg and Python (already done) and continue from the next step."
+    exit 0
 }
 
 # 3 + 4: Python environment
