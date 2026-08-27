@@ -165,6 +165,34 @@ def find_stutter_spans(words):
     return spans
 
 
+def subtract_word_coverage(start, end, words, margin=0.05):
+    """Returns the portions of [start, end] where no transcribed word falls
+    (with a small margin around each word). ffmpeg's silence detector only
+    looks at volume, so quiet-but-real speech can get flagged as 'silence';
+    this stops that from being cut just because it was said softly."""
+    covered = []
+    for w in words:
+        ws, we = w.start - margin, w.end + margin
+        if we > start and ws < end:
+            covered.append((max(start, ws), min(end, we)))
+    covered.sort()
+    merged = []
+    for s, e in covered:
+        if merged and s <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], e))
+        else:
+            merged.append((s, e))
+    result = []
+    cursor = start
+    for s, e in merged:
+        if s > cursor:
+            result.append((cursor, s))
+        cursor = max(cursor, e)
+    if cursor < end:
+        result.append((cursor, end))
+    return result
+
+
 def merge_spans(spans, pad):
     if not spans:
         return []
@@ -184,7 +212,7 @@ def compute_keep_segments(duration, silences, words, settings):
 
     for s, e in silences:
         if e - s >= ed["min_silence_to_cut_seconds"]:
-            cut_spans.append((s, e))
+            cut_spans.extend(subtract_word_coverage(s, e, words))
 
     if ed.get("remove_filler_words"):
         cut_spans.extend(find_filler_spans(words, ed["filler_words"]))
@@ -217,9 +245,17 @@ def remap_words_to_keep_segments(words, keep_segments):
     for seg_start, seg_end in keep_segments:
         seg_len = seg_end - seg_start
         for w in words:
-            overlap_start = max(w.start, seg_start)
-            overlap_end = min(w.end, seg_end)
-            if overlap_end - overlap_start > (w.end - w.start) * 0.5:
+            word_duration = w.end - w.start
+            if word_duration <= 0:
+                # Whisper occasionally emits a zero-length word timestamp;
+                # fall back to checking whether its single point in time
+                # falls inside this kept segment instead of dropping it.
+                keep_this = seg_start <= w.start <= seg_end
+            else:
+                overlap_start = max(w.start, seg_start)
+                overlap_end = min(w.end, seg_end)
+                keep_this = (overlap_end - overlap_start) > word_duration * 0.5
+            if keep_this:
                 new_start = cumulative + max(0.0, w.start - seg_start)
                 new_end = cumulative + min(seg_len, w.end - seg_start)
                 remapped.append(Word(start=new_start, end=new_end, text=w.text))
