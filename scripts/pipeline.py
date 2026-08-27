@@ -123,7 +123,14 @@ def get_model(model_name: str):
 
 def transcribe_words(path: Path, model_name: str):
     model = get_model(model_name)
-    segments, _info = model.transcribe(str(path), word_timestamps=True, vad_filter=False)
+    # temperature=0 disables Whisper's fallback ladder, which otherwise
+    # retries low-confidence audio with randomized sampling — the cause of
+    # getting a different (sometimes hallucinated) transcript on every run
+    # of the same quiet/ambiguous clip. vad_filter skips near-silent/noisy
+    # stretches instead of asking the model to guess at them.
+    segments, _info = model.transcribe(
+        str(path), word_timestamps=True, vad_filter=True, temperature=0.0
+    )
     words = []
     for seg in segments:
         for w in (seg.words or []):
