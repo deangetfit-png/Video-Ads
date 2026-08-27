@@ -9,9 +9,10 @@
   },
 
   "folders": {
-    "raw": "~/Desktop/RawClips",
-    "output": "~/Desktop/VideoAds/Finished",
-    "_note": "raw is where you drop new footage. output is where finished videos + transcripts land. Both are created automatically by setup.sh if missing."
+    "raw": "~/Desktop/Recovery Boots AI Editor/01_Raw_Videos",
+    "transcripts": "~/Desktop/Recovery Boots AI Editor/02_Transcripts",
+    "output": "~/Desktop/Recovery Boots AI Editor/03_Final_Videos",
+    "_note": "raw is where you drop new footage. transcripts and output (finished videos) are separate folders. All three are created automatically by install.ps1 if missing."
   },
 
   "captions": {

@@ -25,8 +25,10 @@ def main():
     settings = p.load_settings()
     raw_dir = p.expand(settings["folders"]["raw"])
     output_dir = p.expand(settings["folders"]["output"])
-    output_dir.mkdir(parents=True, exist_ok=True)
+    transcripts_dir = p.expand(settings["folders"]["transcripts"])
     raw_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    transcripts_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"Watching {raw_dir} for new clips. Press Ctrl+C to stop.")
     state = p.load_state()
@@ -49,7 +51,7 @@ def main():
                 ready.sort()
                 print(f"\nProcessing {len(ready)} new clip(s): {', '.join(f.name for f in ready)}")
                 try:
-                    p.process_batch(ready, settings, output_dir)
+                    p.process_batch(ready, settings)
                     for f in ready:
                         state[str(f)] = p.file_fingerprint(f)
                     p.save_state(state)

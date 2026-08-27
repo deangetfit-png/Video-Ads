@@ -442,10 +442,15 @@ def process_single_clip(src: Path, settings, workdir: Path) -> ProcessedClip:
     return ProcessedClip(cleaned_path, keep_segments, remapped_words)
 
 
-def process_batch(raw_files, settings, output_dir: Path):
+def process_batch(raw_files, settings):
     """raw_files: list of Paths, sorted in the order they should appear in
     the finished video (filename order — name your clips 01_, 02_, ... if
     you film one line at a time)."""
+    output_dir = expand(settings["folders"]["output"])
+    transcripts_dir = expand(settings["folders"]["transcripts"])
+    output_dir.mkdir(parents=True, exist_ok=True)
+    transcripts_dir.mkdir(parents=True, exist_ok=True)
+
     workdir = Path(tempfile.mkdtemp(prefix="video_ads_"))
     try:
         processed = [process_single_clip(f, settings, workdir) for f in raw_files]
@@ -485,7 +490,7 @@ def process_batch(raw_files, settings, output_dir: Path):
         expected_duration = offset
         report = quality_check(final_path, expected_duration, caption_text, settings, workdir)
 
-        transcript_path = output_dir / transcript_name
+        transcript_path = transcripts_dir / transcript_name
         with open(transcript_path, "w") as f:
             f.write(f"Transcript for: {final_name}\n")
             f.write(f"Source clip(s): {', '.join(p.name for p in raw_files)}\n\n")
@@ -529,8 +534,6 @@ def main():
 
     settings = load_settings()
     raw_dir = expand(settings["folders"]["raw"])
-    output_dir = expand(settings["folders"]["output"])
-    output_dir.mkdir(parents=True, exist_ok=True)
 
     if not raw_dir.exists():
         print(f"Raw folder does not exist yet: {raw_dir}")
@@ -543,7 +546,7 @@ def main():
         return
 
     print(f"Found {len(new_files)} new clip(s): {', '.join(f.name for f in new_files)}")
-    process_batch(new_files, settings, output_dir)
+    process_batch(new_files, settings)
 
     for f in new_files:
         state[str(f)] = file_fingerprint(f)
