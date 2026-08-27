@@ -1,0 +1,58 @@
+{
+  "_comment": "Your personal editing preferences. Edit this file any time to change how videos are cut and captioned — no code changes needed. Paths use ~ for your home folder.",
+
+  "filming": {
+    "style": "single_take",
+    "orientation": "portrait",
+    "aspect_ratio": "9:16",
+    "camera": "iphone"
+  },
+
+  "folders": {
+    "raw": "~/Desktop/RawClips",
+    "output": "~/Desktop/VideoAds/Finished",
+    "_note": "raw is where you drop new footage. output is where finished videos + transcripts land. Both are created automatically by setup.sh if missing."
+  },
+
+  "captions": {
+    "font": "Liberation Sans Bold",
+    "font_size_portrait": 64,
+    "text_color": "white",
+    "outline_color": "black",
+    "outline_width": 4,
+    "position": "bottom_third",
+    "max_words_per_screen": 6,
+    "_note": "position options: bottom_third, top_third, center"
+  },
+
+  "spelling": {
+    "must_spell_correctly": [
+      "Tim Dyball",
+      "Endurance"
+    ],
+    "_note": "Words/phrases here are protected: if the transcriber mishears them (e.g. 'tim dial', 'andurance'), the caption text is auto-corrected to the exact spelling listed. This only fixes caption text, not audio."
+  },
+
+  "editing": {
+    "silence_threshold_db": -35,
+    "min_silence_to_cut_seconds": 0.6,
+    "keep_padding_seconds": 0.12,
+    "remove_filler_words": true,
+    "filler_words": ["um", "uh", "erm", "hmm"],
+    "remove_stutter_repeats": true,
+    "_note": "silence_threshold_db: quieter than this counts as 'dead air'. min_silence_to_cut_seconds: only pauses at least this long get trimmed (shorter natural pauses are left alone). keep_padding_seconds: a small buffer left on each side of a cut so speech doesn't sound clipped. remove_stutter_repeats: cuts immediate word repeats like 'the the' or restarted false starts ('I was— I want to say')."
+  },
+
+  "output_naming": {
+    "pattern": "{basename}_{date}_{time}_final.mp4",
+    "transcript_pattern": "{basename}_{date}_{time}_transcript.txt"
+  },
+
+  "quality_check": {
+    "max_duration_drift_seconds": 0.1,
+    "verify_captions_against_audio": true,
+    "_note": "Before handing you a finished video, the pipeline re-transcribes the FINAL audio independently and diffs it word-for-word against the burned-in captions, and checks the final duration matches the sum of kept segments within max_duration_drift_seconds. Any mismatch is written to the QC report instead of being silently ignored."
+  },
+
+  "whisper_model": "small.en"
+}
